@@ -17,12 +17,12 @@ RUN dotnet publish -c Release -o /app
 
 
 ### build the runtime container
-FROM mcr.microsoft.com/dotnet/aspnet:5.0-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/sdk:5.0 AS runtime
 
 ### create a user
 ### dotnet needs a home directory
-RUN addgroup -S webv && \
-    adduser -S webv -G webv && \
+RUN addgroup --system webv && \
+    adduser --system webv --group && \
     mkdir -p /home/webv && \
     chown -R webv:webv /home/webv
 
