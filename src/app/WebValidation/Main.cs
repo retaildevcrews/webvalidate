@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -31,6 +32,9 @@ namespace CSE.WebValidate
         private readonly Dictionary<string, PerfTarget> targets = new ();
         private Config config;
 
+        // Performance logs for summary in Junit Style
+        private static List<PerfLog> perfLogs;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="WebV"/> class
         /// </summary>
@@ -54,6 +58,9 @@ namespace CSE.WebValidate
             {
                 throw new ArgumentException("RequestList is empty");
             }
+
+            //set perfLogs to blank
+            perfLogs = new List<PerfLog>();
         }
 
         /// <summary>
@@ -393,6 +400,7 @@ namespace CSE.WebValidate
 
                     // check the performance
                     perfLog = CreatePerfLog(server, request, valid, duration, (long)resp.Content.Headers.ContentLength, (int)resp.StatusCode, cv.Value);
+                    perfLogs.Add(perfLog);
                 }
                 catch (Exception ex)
                 {
@@ -400,6 +408,7 @@ namespace CSE.WebValidate
                     valid = new ValidationResult { Failed = true };
                     valid.ValidationErrors.Add($"Exception: {ex.Message}");
                     perfLog = CreatePerfLog(server, request, valid, duration, 0, 500, cv.Value);
+                    perfLogs.Add(perfLog);
                 }
             }
 
@@ -632,6 +641,24 @@ namespace CSE.WebValidate
                     };
 
                     res.WriteXmlToConsole();
+                    break;
+
+                case SummaryFormat.Junit:
+                    //Get all the perf logs, build the summary format string and output it to console
+                    //Sum all the test durations to get the total time
+
+                    double totalDuration = TimeSpan.FromMilliseconds(perfLogs.Sum(item => item.Duration)).TotalSeconds;
+                    Console.WriteLine("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>");
+                    Console.WriteLine("<testsuite failures=\"" + errorCount + "\" name=\"Webv to JUnit\" skipped=\"0\" tests=\"" + perfLogs.Count + "\" time=\"" + totalDuration + "\">");
+                    foreach (PerfLog perf in perfLogs)
+                    {
+                        Console.WriteLine("<testcase classname=\"" + ((perf.Tag == null) ? string.Empty : (perf.Tag + ": ")) + perf.Verb + ": " + perf.Path +
+                        "\" name=\"" + ((perf.Tag == null) ? string.Empty : (perf.Tag + ": ")) + perf.Verb + ": " + perf.Path +
+                        "\" time=\"" + TimeSpan.FromMilliseconds(perf.Duration).TotalSeconds + "\">" +
+                        ((perf.ErrorCount >= 1) ? ("<failure message=\"" + string.Join("\n", perf.Errors) + "\"></failure>") : "<system-out></system-out>") + "</testcase>");
+                    }
+
+                    Console.WriteLine("</testsuite>");
                     break;
 
                 case SummaryFormat.None:
