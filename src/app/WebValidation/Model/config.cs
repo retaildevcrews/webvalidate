@@ -36,12 +36,7 @@ namespace CSE.WebValidate
         /// <summary>
         /// XML
         /// </summary>
-        Xml,
-
-        /// <summary>
-        /// Junit styled xml
-        /// </summary>
-        Junit
+        Xml
     }
 
     /// <summary>

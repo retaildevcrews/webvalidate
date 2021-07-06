@@ -21,6 +21,10 @@ namespace CSE.WebValidate.Model
             Errors = validationErrors;
         }
 
+        public PerfLog()
+        {
+        }
+
         /// <summary>
         /// Gets the Type (defaults to request)
         /// </summary>
@@ -177,6 +181,15 @@ namespace CSE.WebValidate.Model
                 log += "\n  " + string.Join("\n  ", Errors);
             }
 
+            return log;
+        }
+
+        public string ToXml()
+        {
+            string log = "<testcase classname=\"" + ((Tag == null) ? string.Empty : (Tag + ": ")) + Verb + ": " + Path +
+                        "\" name=\"" + ((Tag == null) ? string.Empty : (Tag + ": ")) + Verb + ": " + Path +
+                        "\" time=\"" + TimeSpan.FromMilliseconds(Duration).TotalSeconds + "\">" +
+                        ((ErrorCount >= 1) ? ("<failure message=\"" + string.Join("\n", Errors) + "\"></failure>") : "<system-out></system-out>") + "</testcase>";
             return log;
         }
     }

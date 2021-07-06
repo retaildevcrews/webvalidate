@@ -3,7 +3,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
@@ -32,9 +34,6 @@ namespace CSE.WebValidate
         private readonly Dictionary<string, PerfTarget> targets = new ();
         private Config config;
 
-        // Performance logs for summary in Junit Style
-        private static List<PerfLog> perfLogs;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="WebV"/> class
         /// </summary>
@@ -58,9 +57,6 @@ namespace CSE.WebValidate
             {
                 throw new ArgumentException("RequestList is empty");
             }
-
-            //set perfLogs to blank
-            perfLogs = new List<PerfLog>();
         }
 
         /// <summary>
@@ -171,6 +167,18 @@ namespace CSE.WebValidate
 
                 using HttpClient client = OpenHttpClient(config.Server[ndx]);
 
+                //clear the temp.json file
+                if (config.Summary == SummaryFormat.Xml)
+                {
+                    if (File.Exists("temp.json"))
+                    {
+                        File.Delete("temp.json");
+                    }
+                }
+
+                //Start a stopwatch to calculate total time elapsed for a run
+                Stopwatch stopWatch = new Stopwatch();
+                stopWatch.Start();
                 // send each request
                 foreach (Request r in requestList)
                 {
@@ -219,7 +227,10 @@ namespace CSE.WebValidate
                     }
                 }
 
-                DisplaySummary(validationFailureCount, errorCount);
+                stopWatch.Stop();
+                // Get the elapsed time as a TimeSpan value.
+                TimeSpan ts = stopWatch.Elapsed;
+                DisplaySummary(validationFailureCount, errorCount, ts.TotalSeconds);
             }
 
             // return non-zero exit code on failure
@@ -400,7 +411,15 @@ namespace CSE.WebValidate
 
                     // check the performance
                     perfLog = CreatePerfLog(server, request, valid, duration, (long)resp.Content.Headers.ContentLength, (int)resp.StatusCode, cv.Value);
-                    perfLogs.Add(perfLog);
+
+                    if (config.Summary == SummaryFormat.Xml)
+                    {
+                        //append perflog to file
+                        using (StreamWriter sw = File.AppendText("temp.json"))
+                        {
+                            sw.WriteLine(JsonSerializer.Serialize(perfLog));
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -408,7 +427,14 @@ namespace CSE.WebValidate
                     valid = new ValidationResult { Failed = true };
                     valid.ValidationErrors.Add($"Exception: {ex.Message}");
                     perfLog = CreatePerfLog(server, request, valid, duration, 0, 500, cv.Value);
-                    perfLogs.Add(perfLog);
+                    if (config.Summary == SummaryFormat.Xml)
+                    {
+                        //append to file
+                        using (StreamWriter sw = File.AppendText("temp.json"))
+                        {
+                            sw.WriteLine(JsonSerializer.Serialize(perfLog));
+                        }
+                    }
                 }
             }
 
@@ -608,7 +634,7 @@ namespace CSE.WebValidate
         }
 
         // display summary results
-        private void DisplaySummary(int validationFailureCount, int errorCount)
+        private void DisplaySummary(int validationFailureCount, int errorCount, double totalTestRunDuration)
         {
             string status = (errorCount + validationFailureCount >= config.MaxErrors) ? "Test Failed" : "Test Completed";
 
@@ -633,32 +659,27 @@ namespace CSE.WebValidate
                     break;
 
                 case SummaryFormat.Xml:
-                    TestSummary res = new ()
-                    {
-                        ValidationErrorCount = validationFailureCount,
-                        ErrorCount = errorCount,
-                        MaxErrors = config.MaxErrors,
-                    };
-
-                    res.WriteXmlToConsole();
-                    break;
-
-                case SummaryFormat.Junit:
-                    //Get all the perf logs, build the summary format string and output it to console
-                    //Sum all the test durations to get the total time
-
-                    double totalDuration = TimeSpan.FromMilliseconds(perfLogs.Sum(item => item.Duration)).TotalSeconds;
+                    //Get all the perf logs from temp.json, build the summary format string and output it to console
                     Console.WriteLine("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>");
-                    Console.WriteLine("<testsuite failures=\"" + errorCount + "\" name=\"Webv to JUnit\" skipped=\"0\" tests=\"" + perfLogs.Count + "\" time=\"" + totalDuration + "\">");
-                    foreach (PerfLog perf in perfLogs)
+                    Console.WriteLine("<testsuite failures=\"" + errorCount + "\" name=\"Webv to JUnit\" skipped=\"0\" tests=\"" + requestList.Count + "\" time=\"" + totalTestRunDuration + "\">");
+
+                    if (File.Exists("temp.json"))
                     {
-                        Console.WriteLine("<testcase classname=\"" + ((perf.Tag == null) ? string.Empty : (perf.Tag + ": ")) + perf.Verb + ": " + perf.Path +
-                        "\" name=\"" + ((perf.Tag == null) ? string.Empty : (perf.Tag + ": ")) + perf.Verb + ": " + perf.Path +
-                        "\" time=\"" + TimeSpan.FromMilliseconds(perf.Duration).TotalSeconds + "\">" +
-                        ((perf.ErrorCount >= 1) ? ("<failure message=\"" + string.Join("\n", perf.Errors) + "\"></failure>") : "<system-out></system-out>") + "</testcase>");
+                        using (StreamReader sr = new StreamReader("temp.json"))
+                        {
+                            string ln;
+                            while ((ln = sr.ReadLine()) != null)
+                            {
+                                PerfLog perf = JsonSerializer.Deserialize<PerfLog>(ln);
+                                string xmllog = perf.ToXml();
+                                Console.WriteLine(xmllog);
+                            }
+                        }
                     }
 
                     Console.WriteLine("</testsuite>");
+                    //Delete the temp.json file
+                    File.Delete("temp.json");
                     break;
 
                 case SummaryFormat.None:
