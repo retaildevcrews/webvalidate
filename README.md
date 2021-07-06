@@ -220,7 +220,7 @@ We use the `--log-format json` command line option to integrate Docker container
     - default `false`
 - --summary
   - SUMMARY
-    - Display test summary (None, Tsv, Json, JsonCamel, XML)
+    - Display test summary (None, Tsv, Json, JsonCamel, XML, Junit)
     - default `None`
 - --tag string
   - TAG

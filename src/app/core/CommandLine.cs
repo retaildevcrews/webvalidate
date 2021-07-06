@@ -70,7 +70,7 @@ namespace CSE.WebValidate
             OptionResult serverRes = result.Children.FirstOrDefault(c => c.Symbol.Name == "server") as OptionResult;
             OptionResult filesRes = result.Children.FirstOrDefault(c => c.Symbol.Name == "files") as OptionResult;
             OptionResult durationRes = result.Children.FirstOrDefault(c => c.Symbol.Name == "duration") as OptionResult;
-            OptionResult formatRes = result.Children.FirstOrDefault(c => c.Symbol.Name == "c") as OptionResult;
+            OptionResult formatRes = result.Children.FirstOrDefault(c => c.Symbol.Name == "log-format") as OptionResult;
             OptionResult portRes = result.Children.FirstOrDefault(c => c.Symbol.Name == "port") as OptionResult;
 
             bool runLoop = result.Children.FirstOrDefault(c => c.Symbol.Name == "run-loop") is OptionResult runLoopRes && runLoopRes.GetValueOrDefault<bool>();
