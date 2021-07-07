@@ -4,4 +4,4 @@
 dotnet restore src/webvalidate.sln
 
 # copy vscode files
-mkdir -p .vscode && cp docs/vscode-template/* .vscode
+mkdir -p .vscode && cp .vscode-template/* .vscode
