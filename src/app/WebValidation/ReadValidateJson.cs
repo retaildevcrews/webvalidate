@@ -191,11 +191,15 @@ namespace CSE.WebValidate
                 int length = ((JArray)jsonObject["requests"]).Count;
                 for (int testCaseNumber = 0; testCaseNumber < length; testCaseNumber++)
                 {
-                if (jsonObject["requests"]["contentMediaType"].ToString() == "application/json-patch+json")
+                if (jsonObject["requests"][testCaseNumber]["contentMediaType"].ToString() == "application/json-patch+json" && jsonObject["requests"][testCaseNumber]["body"] != null && (jsonObject["requests"][testCaseNumber].ToString().Contains("\"body\": {") || jsonObject["requests"][testCaseNumber].ToString().Contains("\"body\": [")))
                 {
                 var requestBody = jsonObject["requests"][testCaseNumber]["body"].ToString(Newtonsoft.Json.Formatting.None);
-                var match = jsonObject["requests"][testCaseNumber]["validation"]["exactMatch"].ToString(Newtonsoft.Json.Formatting.None);
                 jsonObject["requests"][testCaseNumber]["body"] = requestBody;
+                }
+
+                if (jsonObject["requests"][testCaseNumber]["contentMediaType"].ToString() == "application/json-patch+json" && jsonObject["requests"][testCaseNumber]["validation"]["exactMatch"] != null && (jsonObject["requests"][testCaseNumber]["validation"].ToString().Contains("\"exactMatch\": {") || jsonObject["requests"][testCaseNumber]["validation"].ToString().Contains("\"exactMatch\": [")))
+                {
+                var match = jsonObject["requests"][testCaseNumber]["validation"]["exactMatch"].ToString(Newtonsoft.Json.Formatting.None);
                 jsonObject["requests"][testCaseNumber]["validation"]["exactMatch"] = match;
                 }
                 }
