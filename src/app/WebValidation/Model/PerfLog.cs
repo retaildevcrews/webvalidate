@@ -183,14 +183,5 @@ namespace CSE.WebValidate.Model
 
             return log;
         }
-
-        public string ToXml()
-        {
-            string log = "<testcase classname=\"" + ((Tag == null) ? string.Empty : (Tag + ": ")) + Verb + ": " + Path +
-                        "\" name=\"" + ((Tag == null) ? string.Empty : (Tag + ": ")) + Verb + ": " + Path +
-                        "\" time=\"" + TimeSpan.FromMilliseconds(Duration).TotalSeconds + "\">" +
-                        ((ErrorCount >= 1) ? ("<failure message=\"" + string.Join("\n", Errors) + "\"></failure>") : "<system-out></system-out>") + "</testcase>";
-            return log;
-        }
     }
 }

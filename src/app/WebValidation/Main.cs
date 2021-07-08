@@ -34,6 +34,9 @@ namespace CSE.WebValidate
         private readonly Dictionary<string, PerfTarget> targets = new ();
         private Config config;
 
+        // Guid for the temporary json file
+        private Guid fileGuid = Guid.NewGuid();
+
         /// <summary>
         /// Initializes a new instance of the <see cref="WebV"/> class
         /// </summary>
@@ -167,16 +170,7 @@ namespace CSE.WebValidate
 
                 using HttpClient client = OpenHttpClient(config.Server[ndx]);
 
-                //clear the temp.json file
-                if (config.Summary == SummaryFormat.Xml)
-                {
-                    if (File.Exists("temp.json"))
-                    {
-                        File.Delete("temp.json");
-                    }
-                }
-
-                //Start a stopwatch to calculate total time elapsed for a run
+                // Start a stopwatch to calculate total time elapsed for a run
                 Stopwatch stopWatch = new Stopwatch();
                 stopWatch.Start();
                 // send each request
@@ -414,8 +408,13 @@ namespace CSE.WebValidate
 
                     if (config.Summary == SummaryFormat.Xml)
                     {
-                        //append perflog to file
-                        using (StreamWriter sw = File.AppendText("temp.json"))
+                        if (!File.Exists("temp/" + fileGuid + ".json"))
+                        {
+                            Directory.CreateDirectory("temp");
+                        }
+
+                        // append perflog to file
+                        using (StreamWriter sw = File.AppendText("temp/" + fileGuid + ".json"))
                         {
                             sw.WriteLine(JsonSerializer.Serialize(perfLog));
                         }
@@ -429,8 +428,14 @@ namespace CSE.WebValidate
                     perfLog = CreatePerfLog(server, request, valid, duration, 0, 500, cv.Value);
                     if (config.Summary == SummaryFormat.Xml)
                     {
-                        //append to file
-                        using (StreamWriter sw = File.AppendText("temp.json"))
+                        if (!File.Exists("temp/" + fileGuid + ".json"))
+                        {
+                            Directory.CreateDirectory("temp");
+                            File.Create("temp/" + fileGuid + ".json");
+                        }
+
+                        // append to file
+                        using (StreamWriter sw = File.AppendText("temp/" + fileGuid + ".json"))
                         {
                             sw.WriteLine(JsonSerializer.Serialize(perfLog));
                         }
@@ -659,27 +664,50 @@ namespace CSE.WebValidate
                     break;
 
                 case SummaryFormat.Xml:
-                    //Get all the perf logs from temp.json, build the summary format string and output it to console
-                    Console.WriteLine("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>");
-                    Console.WriteLine("<testsuite failures=\"" + errorCount + "\" name=\"Webv to JUnit\" skipped=\"0\" tests=\"" + requestList.Count + "\" time=\"" + totalTestRunDuration + "\">");
+                    // Get all the perf logs from temp folder's guid.json, build the summary format xml and output it to console
+                    TestSuite testSuite = new TestSuite();
+                    testSuite.Failures = errorCount.ToString();
+                    testSuite.Name = "WebVToJUnit";
+                    testSuite.Skipped = "0";
+                    testSuite.Tests = requestList.Count.ToString();
+                    testSuite.Time = totalTestRunDuration.ToString();
+                    List<TestCase> testCaseList = new List<TestCase>();
+                    testSuite.TestCases = testCaseList;
 
-                    if (File.Exists("temp.json"))
+                    if (File.Exists("temp/" + fileGuid + ".json"))
                     {
-                        using (StreamReader sr = new StreamReader("temp.json"))
+                        using (StreamReader sr = new StreamReader("temp/" + fileGuid + ".json"))
                         {
                             string ln;
                             while ((ln = sr.ReadLine()) != null)
                             {
                                 PerfLog perf = JsonSerializer.Deserialize<PerfLog>(ln);
-                                string xmllog = perf.ToXml();
-                                Console.WriteLine(xmllog);
+                                TestCase testCase = new TestCase();
+                                testCase.Name = ((perf.Tag == null) ? string.Empty : (perf.Tag + ": ")) + perf.Verb + ": " + perf.Path;
+                                testCase.ClassName = testCase.Name;
+                                testCase.Time = TimeSpan.FromMilliseconds(perf.Duration).TotalSeconds.ToString();
+                                if (perf.ErrorCount >= 1)
+                                {
+                                    testCase.Failure = new Failure();
+                                    testCase.Failure.Message = string.Join("\n", perf.Errors);
+                                }
+                                else
+                                {
+                                    testCase.SystemOut = string.Empty;
+                                }
+
+                                testCaseList.Add(testCase);
                             }
                         }
                     }
 
-                    Console.WriteLine("</testsuite>");
-                    //Delete the temp.json file
-                    File.Delete("temp.json");
+                    Console.WriteLine(testSuite.ToXml());
+                    // Delete the temp.json file
+                    if (File.Exists("temp/" + fileGuid + ".json"))
+                    {
+                        File.Delete("temp/" + fileGuid + ".json");
+                    }
+
                     break;
 
                 case SummaryFormat.None:
