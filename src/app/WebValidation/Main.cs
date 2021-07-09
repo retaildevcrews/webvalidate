@@ -34,8 +34,8 @@ namespace CSE.WebValidate
         private readonly Dictionary<string, PerfTarget> targets = new ();
         private Config config;
 
-        // Guid for the temporary json file
-        private Guid fileGuid = Guid.NewGuid();
+        // Temporary json file Path
+        private string tempJsonFilePath = "temp/" + Guid.NewGuid() + ".json";
 
         /// <summary>
         /// Initializes a new instance of the <see cref="WebV"/> class
@@ -154,6 +154,15 @@ namespace CSE.WebValidate
             int errorCount = 0;
             int validationFailureCount = 0;
 
+            //check if the temp directory exists for the XML summary case
+            if (config.Summary == SummaryFormat.Xml)
+            {
+                if (!Directory.Exists("temp"))
+                {
+                    Directory.CreateDirectory("temp");
+                }
+            }
+
             // loop through each server
             for (int ndx = 0; ndx < config.Server.Count; ndx++)
             {
@@ -222,9 +231,8 @@ namespace CSE.WebValidate
                 }
 
                 stopWatch.Stop();
-                // Get the elapsed time as a TimeSpan value.
-                TimeSpan ts = stopWatch.Elapsed;
-                DisplaySummary(validationFailureCount, errorCount, ts.TotalSeconds);
+
+                DisplaySummary(validationFailureCount, errorCount, stopWatch.Elapsed.TotalSeconds);
             }
 
             // return non-zero exit code on failure
@@ -408,13 +416,8 @@ namespace CSE.WebValidate
 
                     if (config.Summary == SummaryFormat.Xml)
                     {
-                        if (!File.Exists("temp/" + fileGuid + ".json"))
-                        {
-                            Directory.CreateDirectory("temp");
-                        }
-
                         // append perflog to file
-                        using (StreamWriter sw = File.AppendText("temp/" + fileGuid + ".json"))
+                        using (StreamWriter sw = File.AppendText(tempJsonFilePath))
                         {
                             sw.WriteLine(JsonSerializer.Serialize(perfLog));
                         }
@@ -428,14 +431,8 @@ namespace CSE.WebValidate
                     perfLog = CreatePerfLog(server, request, valid, duration, 0, 500, cv.Value);
                     if (config.Summary == SummaryFormat.Xml)
                     {
-                        if (!File.Exists("temp/" + fileGuid + ".json"))
-                        {
-                            Directory.CreateDirectory("temp");
-                            File.Create("temp/" + fileGuid + ".json");
-                        }
-
                         // append to file
-                        using (StreamWriter sw = File.AppendText("temp/" + fileGuid + ".json"))
+                        using (StreamWriter sw = File.AppendText(tempJsonFilePath))
                         {
                             sw.WriteLine(JsonSerializer.Serialize(perfLog));
                         }
@@ -674,9 +671,9 @@ namespace CSE.WebValidate
                     List<TestCase> testCaseList = new List<TestCase>();
                     testSuite.TestCases = testCaseList;
 
-                    if (File.Exists("temp/" + fileGuid + ".json"))
+                    if (File.Exists(tempJsonFilePath))
                     {
-                        using (StreamReader sr = new StreamReader("temp/" + fileGuid + ".json"))
+                        using (StreamReader sr = new StreamReader(tempJsonFilePath))
                         {
                             string ln;
                             while ((ln = sr.ReadLine()) != null)
@@ -703,9 +700,9 @@ namespace CSE.WebValidate
 
                     Console.WriteLine(testSuite.ToXml());
                     // Delete the temp.json file
-                    if (File.Exists("temp/" + fileGuid + ".json"))
+                    if (File.Exists(tempJsonFilePath))
                     {
-                        File.Delete("temp/" + fileGuid + ".json");
+                        File.Delete(tempJsonFilePath);
                     }
 
                     break;
